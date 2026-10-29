@@ -1,3 +1,213 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dove ti porterà il prossimo viaggio?</title>
+  <style>
+/* ===== Variabili e base ===== */
+:root{
+  --blue:#2f5bff; --violet:#7b2ff7; --orange:#ff8a1f; --white:#fff; --ink:#1b1646;
+  --c1:#2f5bff; --c2:#7b2ff7; --c3:#ff8a1f; --c4:#12b886;
+  --radius:22px;
+}
+*{box-sizing:border-box;margin:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:"Poppins","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  color:var(--ink); min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  padding:20px 16px 0; background:linear-gradient(135deg,#2f5bff,#7b2ff7 70%); overflow-x:hidden;
+}
+:focus-visible{outline:4px solid #ffd43b; outline-offset:3px}
+.hidden{display:none!important}
+
+/* ===== Sfondo ===== */
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(6px);opacity:.35;animation:drift 14s ease-in-out infinite alternate}
+.b1{width:320px;height:320px;background:var(--orange);top:-80px;left:-80px}
+.b2{width:260px;height:260px;background:#fff;bottom:10%;right:-60px;animation-delay:-4s}
+.b3{width:200px;height:200px;background:#00d4ff;bottom:-60px;left:20%;animation-delay:-8s}
+.float{position:absolute;font-size:2.2rem;opacity:.45;animation:bob 6s ease-in-out infinite}
+.f1{top:12%;right:12%}.f2{top:60%;left:6%;animation-delay:-2s}.f3{top:30%;left:8%;animation-delay:-4s}.f4{bottom:18%;right:10%;animation-delay:-1s}
+@keyframes drift{to{transform:translate(40px,30px) scale(1.15)}}
+@keyframes bob{50%{transform:translateY(-18px) rotate(8deg)}}
+
+/* ===== Card centrale ===== */
+.card{
+  position:relative;z-index:1;width:100%;max-width:760px;margin:auto;background:var(--white);
+  border-radius:32px;padding:clamp(20px,5vw,44px);text-align:center;
+  box-shadow:0 30px 60px rgba(20,10,80,.35),0 8px 0 rgba(0,0,0,.08);
+}
+.screen{display:none}
+.screen.active{display:block;animation:enter .5s cubic-bezier(.2,.9,.3,1.2)}
+.screen.leaving{animation:leave .3s ease forwards}
+@keyframes enter{from{opacity:0;transform:translateY(24px) scale(.96)}}
+@keyframes leave{to{opacity:0;transform:translateX(-30px)}}
+
+h1{font-size:clamp(1.8rem,6vw,3rem);line-height:1.1;font-weight:900;margin:12px 0;
+  background:linear-gradient(90deg,var(--blue),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-size:clamp(1.3rem,4.5vw,2rem);font-weight:800;margin:14px 0 20px}
+.sub{font-size:clamp(1rem,3vw,1.2rem);margin:0 auto 24px;max-width:520px;color:#3d3880}
+
+.hero{font-size:clamp(3rem,12vw,5rem);display:flex;justify-content:center;gap:14px}
+.plane{animation:fly 3s ease-in-out infinite}
+.suitcase{animation:bob 3s ease-in-out infinite}
+.globe{animation:spin 8s linear infinite;display:inline-block}
+@keyframes fly{50%{transform:translate(14px,-14px) rotate(-8deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== Pulsanti ===== */
+button{font:inherit;cursor:pointer;border:0}
+.btn-main,.btn-alt{
+  font-weight:800;font-size:clamp(1rem,3.5vw,1.25rem);padding:16px 30px;border-radius:999px;color:#fff;
+  transition:transform .15s,box-shadow .15s; min-height:52px;
+}
+.btn-main{background:linear-gradient(90deg,var(--orange),#ff5d3a);box-shadow:0 6px 0 #c4570b}
+.btn-alt{background:linear-gradient(90deg,var(--blue),var(--violet));box-shadow:0 6px 0 #2a1a8f}
+.btn-main:hover,.btn-alt:hover{transform:translateY(-3px) scale(1.04)}
+.btn-main:active,.btn-alt:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:18px}
+.sound{position:fixed;top:14px;right:14px;z-index:5;width:46px;height:46px;border-radius:50%;background:#fff;font-size:1.3rem;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+
+/* ===== Quiz ===== */
+.top{margin-bottom:8px}
+.counter{display:inline-block;background:var(--ink);color:#fff;font-weight:800;font-size:.85rem;letter-spacing:.08em;padding:6px 14px;border-radius:999px}
+.bar{height:12px;background:#e6e4ff;border-radius:99px;margin-top:12px;overflow:hidden}
+#barFill{height:100%;width:0;background:linear-gradient(90deg,var(--orange),#ffd43b);border-radius:99px;transition:width .6s cubic-bezier(.3,1.2,.4,1)}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ans{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px;
+  padding:16px 10px;border-radius:var(--radius);color:#fff;font-weight:800;font-size:clamp(.95rem,3.2vw,1.15rem);
+  box-shadow:0 6px 0 rgba(0,0,0,.25);transition:transform .15s,filter .15s,opacity .3s;animation:pop .45s backwards;
+}
+.ans:nth-child(1){background:var(--c1);animation-delay:.05s}
+.ans:nth-child(2){background:var(--c2);animation-delay:.12s}
+.ans:nth-child(3){background:#e8590c;animation-delay:.19s}
+.ans:nth-child(4){background:#0b7a5a;animation-delay:.26s}
+.ans .ico{font-size:2.2rem}
+.ans:hover:not(:disabled){transform:translateY(-4px) scale(1.03);filter:brightness(1.1)}
+.ans:disabled{cursor:default}
+.ans.chosen{animation:chosen .5s forwards;outline:5px solid #ffd43b}
+.ans.dim{opacity:.35;filter:grayscale(.5)}
+@keyframes pop{from{opacity:0;transform:scale(.7)}}
+@keyframes chosen{40%{transform:scale(1.12) rotate(-2deg)}to{transform:scale(1.05)}}
+#discoverBtn{margin-top:22px;animation:pop .4s}
+
+/* ===== Attesa ===== */
+.spinner{font-size:5rem;animation:spin 1.2s linear infinite;display:inline-block;margin-top:10px}
+.ticker{font-size:clamp(1.4rem,5vw,2rem);font-weight:900;color:var(--violet);min-height:2.4rem;margin-top:10px}
+
+/* ===== Risultato ===== */
+.kicker{font-weight:800;letter-spacing:.15em;color:var(--orange)}
+.res-name{font-size:clamp(2.2rem,9vw,4.2rem);line-height:1.05;font-weight:900;margin:6px 0 16px;
+  background:linear-gradient(90deg,var(--blue),var(--violet),var(--orange));-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:reveal .9s cubic-bezier(.2,1.4,.4,1)}
+@keyframes reveal{from{opacity:0;transform:scale(.3) rotate(-6deg);filter:blur(10px)}}
+.photo{position:relative;aspect-ratio:16/10;border-radius:var(--radius);overflow:hidden;box-shadow:0 14px 30px rgba(20,10,80,.3);animation:reveal 1.1s .1s backwards}
+.photo img,.fallback{position:absolute;inset:0;width:100%;height:100%}
+.photo img{object-fit:cover;opacity:0;transition:opacity .6s}
+.photo img.ok{opacity:1}
+.fallback{display:flex;align-items:center;justify-content:center;font-size:clamp(4rem,18vw,8rem);background:linear-gradient(135deg,var(--blue),var(--violet),var(--orange))}
+.desc{font-size:clamp(1rem,3vw,1.15rem);margin:18px auto 10px;max-width:560px;color:#3d3880}
+.cheer{font-weight:900;color:var(--blue);margin:10px 0;font-size:clamp(1rem,3.4vw,1.2rem)}
+.share-msg{min-height:1.4em;margin-top:10px;font-weight:700;color:#0b7a5a}
+
+/* ===== Footer ===== */
+.footer{
+  position:relative;z-index:1;width:calc(100% + 32px);margin:32px -16px 0;padding:28px 16px;text-align:center;color:#fff;
+  background:rgba(20,10,80,.55);backdrop-filter:blur(8px);border-radius:28px 28px 0 0;
+}
+.footer h3{font-weight:900;letter-spacing:.06em;margin-bottom:12px;font-size:clamp(1rem,3.5vw,1.3rem)}
+.insta{display:inline-flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font-weight:800;padding:12px 22px;border-radius:999px;
+  background:linear-gradient(45deg,#f9a825,#e1306c,#833ab4);transition:transform .2s,box-shadow .2s}
+.insta:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.footer p{margin-top:12px;font-size:.95rem;opacity:.95}
+.footer.hidden{display:none}
+
+/* ===== Coriandoli ===== */
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:10;overflow:hidden}
+.conf{position:absolute;top:-20px;width:10px;height:14px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+
+/* ===== Responsive ===== */
+@media (max-width:480px){
+  .answers{gap:10px}.ans{min-height:100px}.ans .ico{font-size:1.8rem}
+  .row .btn-main,.row .btn-alt{width:100%}
+}
+
+/* ===== Accessibilità: meno movimento ===== */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .float,.blob{display:none}
+}
+
+</style>
+</head>
+<body>
+  <!-- Sfondo decorativo -->
+  <div class="bg" aria-hidden="true">
+    <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
+    <span class="float f1">✈️</span><span class="float f2">🧳</span><span class="float f3">🌴</span><span class="float f4">🗺️</span>
+  </div>
+
+  <button id="soundBtn" class="sound" aria-pressed="false" aria-label="Attiva o disattiva gli effetti sonori">🔇</button>
+
+  <main class="card">
+    <!-- 1. Schermata iniziale -->
+    <section id="screen-start" class="screen active">
+      <div class="hero" aria-hidden="true"><span class="plane">✈️</span><span class="suitcase">🧳</span><span class="globe">🌍</span></div>
+      <h1>DOVE TI PORTERÀ IL PROSSIMO VIAGGIO?</h1>
+      <p class="sub">Rispondi a 6 semplici domande e scopri la destinazione che potrebbe sorprenderti!</p>
+      <button id="startBtn" class="btn-main">INIZIA IL QUIZ ✈️</button>
+    </section>
+
+    <!-- 2. Quiz -->
+    <section id="screen-quiz" class="screen" aria-live="polite">
+      <div class="top">
+        <span id="counter" class="counter">DOMANDA 1 DI 6</span>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0"><div id="barFill"></div></div>
+      </div>
+      <h2 id="questionText" tabindex="-1"></h2>
+      <div id="answers" class="answers"></div>
+      <button id="discoverBtn" class="btn-main hidden">SCOPRI LA TUA META 🎁</button>
+    </section>
+
+    <!-- 3. Attesa -->
+    <section id="screen-loading" class="screen">
+      <div class="spinner" aria-hidden="true">🧳</div>
+      <h2>STIAMO PREPARANDO LA TUA PROSSIMA AVVENTURA...</h2>
+      <p id="cityTicker" class="ticker" aria-hidden="true">✈️</p>
+    </section>
+
+    <!-- 4. Risultato -->
+    <section id="screen-result" class="screen">
+      <p class="kicker">LA TUA META È...</p>
+      <h2 id="resName" class="res-name"></h2>
+      <div class="photo">
+        <div id="photoFallback" class="fallback" aria-hidden="true"></div>
+        <img id="resImg" alt="" loading="lazy">
+      </div>
+      <p id="resDesc" class="desc"></p>
+      <p class="cheer">PREPARA LA VALIGIA, LA TUA PROSSIMA AVVENTURA TI ASPETTA!</p>
+      <div class="row">
+        <button id="shareBtn" class="btn-alt">CONDIVIDI 📤</button>
+        <button id="retryBtn" class="btn-main">RIPROVA IL QUIZ 🔄</button>
+      </div>
+      <p id="shareMsg" class="share-msg" role="status"></p>
+    </section>
+  </main>
+
+  <footer id="footer" class="footer">
+    <h3>SEGUICI PER ALTRE AVVENTURE ✈️</h3>
+    <a href="https://www.instagram.com/marcoratravel/" target="_blank" rel="noopener noreferrer" class="insta">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+      Instagram: @marcoratravel
+    </a>
+    <p>Il mondo è troppo grande per restare fermi. Seguici e lasciati ispirare.</p>
+  </footer>
+
+  <div id="confetti" aria-hidden="true"></div>
+  <script>
 /* ===================================================
    QUIZ DI VIAGGIO – logica
    Per modificare domande o mete, cambia solo i due
@@ -19,13 +229,13 @@ const QUESTIONS = [
 // Puoi sostituire gli URL con le tue foto (es. "img/oslo.jpg").
 const wiki = f => "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(f) + "?width=1000";
 const DESTINATIONS = [
-  { flag: "🇳🇴", name: "Oslo, Norvegia", img: wiki("Oslo Opera House.jpg"),
+  { name: "Oslo, Norvegia", img: wiki("Oslo Opera House.jpg"),
     desc: "Fiordi che sfiorano la città, musei sorprendenti e una natura che inizia a pochi minuti dal centro. Perfetta per chi cerca aria fresca e scoperte." },
-  { flag: "🇲🇽", name: "Città del Messico, Messico", img: wiki("Palacio de Bellas Artes, Mexico City.jpg"),
+  { name: "Città del Messico, Messico", img: wiki("Palacio de Bellas Artes, Mexico City.jpg"),
     desc: "Una metropoli vibrante di colori, mercati, street food e storia antichissima. Ogni quartiere ha un ritmo e un sapore tutto suo." },
-  { flag: "🇬🇷", name: "Santorini, Grecia", img: wiki("Oia, Santorini.jpg"),
+  { name: "Santorini, Grecia", img: wiki("Oia, Santorini.jpg"),
     desc: "Case bianche affacciate sul mare e tramonti che sembrano dipinti. Un'isola fatta per rallentare e lasciarsi incantare." },
-  { flag: "🇹🇷", name: "Ankara, Turchia", img: wiki("Anıtkabir.jpg"),
+  { name: "Ankara, Turchia", img: wiki("Anıtkabir.jpg"),
     desc: "La capitale turca unisce storia, musei e vita moderna, con panorami sulla città dall'alto delle sue colline. Una meta originale da scoprire." }
 ];
 
@@ -143,7 +353,7 @@ function pickDestination(){
 
 function startLoading(){
   showScreen("loading");
-  const names = DESTINATIONS.map(d => d.flag + " " + d.name.split(",")[0]);
+  const names = DESTINATIONS.map(d => d.name.split(",")[0]);
   let n = 0;
   const tick = setInterval(() => { $("cityTicker").textContent = names[n++ % names.length]; beep(300 + (n % 4) * 80, .05); }, 140);
   const dest = pickDestination();           // scelta fatta solo ora, a fine quiz
@@ -153,11 +363,11 @@ function startLoading(){
 
 // ---- Risultato ----
 function showResult(dest){
-  $("resName").textContent = `${dest.flag} ${dest.name}`;
+  $("resName").textContent = dest.name;
   $("resDesc").textContent = dest.desc;
   $("shareMsg").textContent = "";
   const img = $("resImg"), fb = $("photoFallback");
-  fb.textContent = dest.flag;
+  fb.textContent = "🌍";
   img.classList.remove("ok");
   img.alt = "Fotografia di " + dest.name;
   img.onload = () => img.classList.add("ok");
@@ -166,7 +376,7 @@ function showResult(dest){
   showScreen("result");
   later(confetti, 400);
   beep(880, .3);
-  $("shareBtn").dataset.text = `Il mio prossimo viaggio sarà ${dest.flag} ${dest.name}! Scopri il tuo con il quiz: `;
+  $("shareBtn").dataset.text = `Il mio prossimo viaggio sarà ${dest.name}! Scopri il tuo con il quiz: `;
 }
 
 function confetti(){
@@ -218,3 +428,7 @@ $("soundBtn").addEventListener("click", () => {
   $("soundBtn").setAttribute("aria-pressed", state.sound);
   beep(700);
 });
+
+</script>
+</body>
+</html>
