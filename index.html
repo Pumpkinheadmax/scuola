@@ -1,0 +1,220 @@
+/* ===================================================
+   QUIZ DI VIAGGIO – logica
+   Per modificare domande o mete, cambia solo i due
+   array qui sotto (QUESTIONS e DESTINATIONS).
+   =================================================== */
+
+// ---- DOMANDE (4 risposte ciascuna) ----
+const QUESTIONS = [
+  { q: "Qual è il tuo sport preferito?", a: [["⚽","Calcio"],["🏀","Basket"],["🏐","Pallavolo"],["🎮","Esport e videogiochi"]] },
+  { q: "Qual è il tuo clima ideale?", a: [["☀️","Caldo e sole"],["❄️","Freddo e neve"],["🌴","Tropicale e umido"],["🌤️","Fresco e ventilato"]] },
+  { q: "Come preferisci trascorrere una giornata libera?", a: [["🏖️","Al mare a rilassarmi"],["🏙️","Visitando una città"],["🏔️","Esplorando la natura"],["🎉","Divertendomi tra locali ed eventi"]] },
+  { q: "Quale cibo sceglieresti sempre?", a: [["🍕","Pizza"],["🍣","Sushi"],["🍔","Hamburger"],["🍝","Pasta"]] },
+  { q: "Quale esperienza ti piacerebbe vivere?", a: [["🌊","Nuotare in acque cristalline"],["🎢","Provare attrazioni adrenaliniche"],["🏛️","Scoprire monumenti e culture diverse"],["🌅","Ammirare panorami mozzafiato"]] },
+  { q: "Con chi preferiresti partire?", a: [["🧑‍🤝‍🧑","Con gli amici"],["❤️","Con la persona che amo"],["👨‍👩‍👧‍👦","Con la famiglia"],["🧳","Da solo, per vivere nuove esperienze"]] }
+];
+
+// ---- DESTINAZIONI ----
+// "img" è facoltativa: se non si carica, appare il fallback grafico (bandiera su gradiente).
+// Puoi sostituire gli URL con le tue foto (es. "img/oslo.jpg").
+const wiki = f => "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(f) + "?width=1000";
+const DESTINATIONS = [
+  { flag: "🇳🇴", name: "Oslo, Norvegia", img: wiki("Oslo Opera House.jpg"),
+    desc: "Fiordi che sfiorano la città, musei sorprendenti e una natura che inizia a pochi minuti dal centro. Perfetta per chi cerca aria fresca e scoperte." },
+  { flag: "🇲🇽", name: "Città del Messico, Messico", img: wiki("Palacio de Bellas Artes, Mexico City.jpg"),
+    desc: "Una metropoli vibrante di colori, mercati, street food e storia antichissima. Ogni quartiere ha un ritmo e un sapore tutto suo." },
+  { flag: "🇬🇷", name: "Santorini, Grecia", img: wiki("Oia, Santorini.jpg"),
+    desc: "Case bianche affacciate sul mare e tramonti che sembrano dipinti. Un'isola fatta per rallentare e lasciarsi incantare." },
+  { flag: "🇹🇷", name: "Ankara, Turchia", img: wiki("Anıtkabir.jpg"),
+    desc: "La capitale turca unisce storia, musei e vita moderna, con panorami sulla città dall'alto delle sue colline. Una meta originale da scoprire." }
+];
+
+// ---- Riferimenti DOM ----
+const $ = id => document.getElementById(id);
+const screens = { start: $("screen-start"), quiz: $("screen-quiz"), loading: $("screen-loading"), result: $("screen-result") };
+const state = { index: 0, answers: [], locked: false, sound: false };
+const timers = [];
+let audioCtx = null;
+
+// ---- Utilità ----
+function later(fn, ms){ const t = setTimeout(fn, ms); timers.push(t); return t; }
+function clearTimers(){ timers.splice(0).forEach(clearTimeout); }
+
+// Cambia schermata con animazione di uscita/entrata
+function showScreen(name){
+  const current = document.querySelector(".screen.active");
+  const next = screens[name];
+  const go = () => {
+    if(current){ current.classList.remove("active","leaving"); }
+    next.classList.add("active");
+    // il footer compare solo su iniziale e risultato
+    $("footer").classList.toggle("hidden", !(name === "start" || name === "result"));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  if(current && current !== next){ current.classList.add("leaving"); later(go, 280); } else go();
+}
+
+// ---- Suoni (facoltativi, spenti di default) ----
+function beep(freq = 520, dur = .12){
+  if(!state.sound) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; o.type = "sine"; g.gain.value = .06;
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
+  }catch(e){ /* audio non disponibile: ignora */ }
+}
+
+// ---- Domande ----
+function startQuiz(){
+  clearTimers();
+  state.index = 0; state.answers = []; state.locked = false;
+  $("barFill").style.width = "0%";
+  renderQuestion();
+  showScreen("quiz");
+}
+
+function renderQuestion(){
+  const item = QUESTIONS[state.index];
+  state.locked = false;
+  $("counter").textContent = `DOMANDA ${state.index + 1} DI ${QUESTIONS.length}`;
+  $("questionText").textContent = item.q;
+  $("discoverBtn").classList.add("hidden");
+  const box = $("answers");
+  box.innerHTML = "";
+  item.a.forEach(([icon, label], i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "ans";
+    b.innerHTML = `<span class="ico" aria-hidden="true">${icon}</span><span></span>`;
+    b.lastChild.textContent = label;
+    b.addEventListener("click", () => selectAnswer(i, b));
+    box.appendChild(b);
+  });
+  const bar = document.querySelector(".bar");
+  bar.setAttribute("aria-valuenow", state.index);
+}
+
+function selectAnswer(i, btn){
+  if(state.locked) return;           // una sola risposta per domanda
+  state.locked = true;
+  state.answers.push(i);
+  const all = [...$("answers").children];
+  all.forEach(b => { b.disabled = true; if(b !== btn) b.classList.add("dim"); });
+  btn.classList.add("chosen");
+  beep(660);
+  burst(btn);
+  $("barFill").style.width = ((state.index + 1) / QUESTIONS.length * 100) + "%";
+  $("barFill").parentElement.setAttribute("aria-valuenow", state.index + 1);
+
+  if(state.index < QUESTIONS.length - 1){
+    later(() => { state.index++; nextQuestion(); }, 850);
+  }else{
+    // ultima domanda: compare il pulsante finale
+    later(() => { $("discoverBtn").classList.remove("hidden"); $("discoverBtn").focus(); }, 500);
+  }
+}
+
+function nextQuestion(){
+  const s = screens.quiz;
+  s.classList.add("leaving");
+  later(() => { s.classList.remove("leaving"); renderQuestion(); s.classList.remove("active"); void s.offsetWidth; s.classList.add("active"); $("questionText").focus({preventScroll:true}); }, 280);
+}
+
+// Piccolo effetto di scintille sulla risposta scelta
+function burst(el){
+  const r = el.getBoundingClientRect();
+  for(let i = 0; i < 10; i++){
+    const s = document.createElement("span");
+    s.className = "conf";
+    s.style.left = (r.left + r.width / 2 + (Math.random() - .5) * r.width) + "px";
+    s.style.top = (r.top + r.height / 2) + "px";
+    s.style.background = randColor();
+    s.style.animationDuration = (.6 + Math.random() * .6) + "s";
+    $("confetti").appendChild(s);
+    later(() => s.remove(), 1400);
+  }
+}
+const randColor = () => ["#ff8a1f","#2f5bff","#7b2ff7","#ffd43b","#12b886","#ff5d3a"][Math.floor(Math.random() * 6)];
+
+// ---- Estrazione casuale (indipendente dalle risposte) ----
+function pickDestination(){
+  return DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)]; // stessa probabilità per tutte
+}
+
+function startLoading(){
+  showScreen("loading");
+  const names = DESTINATIONS.map(d => d.flag + " " + d.name.split(",")[0]);
+  let n = 0;
+  const tick = setInterval(() => { $("cityTicker").textContent = names[n++ % names.length]; beep(300 + (n % 4) * 80, .05); }, 140);
+  const dest = pickDestination();           // scelta fatta solo ora, a fine quiz
+  later(() => { clearInterval(tick); showResult(dest); }, 2600);
+  timers.push(tick);                         // per poterlo fermare al reset
+}
+
+// ---- Risultato ----
+function showResult(dest){
+  $("resName").textContent = `${dest.flag} ${dest.name}`;
+  $("resDesc").textContent = dest.desc;
+  $("shareMsg").textContent = "";
+  const img = $("resImg"), fb = $("photoFallback");
+  fb.textContent = dest.flag;
+  img.classList.remove("ok");
+  img.alt = "Fotografia di " + dest.name;
+  img.onload = () => img.classList.add("ok");
+  img.onerror = () => { img.classList.remove("ok"); img.removeAttribute("src"); };  // resta visibile il fallback
+  img.src = dest.img;
+  showScreen("result");
+  later(confetti, 400);
+  beep(880, .3);
+  $("shareBtn").dataset.text = `Il mio prossimo viaggio sarà ${dest.flag} ${dest.name}! Scopri il tuo con il quiz: `;
+}
+
+function confetti(){
+  const box = $("confetti");
+  for(let i = 0; i < 90; i++){
+    const c = document.createElement("span");
+    c.className = "conf";
+    c.style.left = Math.random() * 100 + "vw";
+    c.style.background = randColor();
+    c.style.animationDuration = (2 + Math.random() * 2.5) + "s";
+    c.style.animationDelay = Math.random() * .8 + "s";
+    c.style.borderRadius = Math.random() > .5 ? "50%" : "2px";
+    box.appendChild(c);
+    later(() => c.remove(), 5500);
+  }
+}
+
+// ---- Condivisione ----
+async function share(){
+  const text = $("shareBtn").dataset.text + location.href;
+  try{
+    if(navigator.share){ await navigator.share({ title: document.title, text, url: location.href }); return; }
+    await navigator.clipboard.writeText(text);
+    $("shareMsg").textContent = "Testo copiato negli appunti! 📋";
+  }catch(e){
+    // fallback finale: selezione manuale
+    if(e && e.name === "AbortError") return;
+    window.prompt("Copia il testo da condividere:", text);
+  }
+}
+
+// ---- Reset ----
+function resetQuiz(){
+  clearTimers();
+  $("confetti").innerHTML = "";
+  state.index = 0; state.answers = []; state.locked = false;
+  $("barFill").style.width = "0%";
+  showScreen("start");
+}
+
+// ---- Eventi ----
+$("startBtn").addEventListener("click", startQuiz);
+$("discoverBtn").addEventListener("click", startLoading);
+$("retryBtn").addEventListener("click", resetQuiz);
+$("shareBtn").addEventListener("click", share);
+$("soundBtn").addEventListener("click", () => {
+  state.sound = !state.sound;
+  $("soundBtn").textContent = state.sound ? "🔊" : "🔇";
+  $("soundBtn").setAttribute("aria-pressed", state.sound);
+  beep(700);
+});
